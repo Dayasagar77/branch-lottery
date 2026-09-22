@@ -1,0 +1,100 @@
+==============================================================================
+FROZEN NUMBERS  (regenerate with: python freeze_numbers.py)
+seed 20260921 | 200000 permutations | floor <25 dBm | ceiling >=28 dBm
+==============================================================================
+
+[T1] THE THREE ARMS -- out-of-sample RLF %, 500 held-out episodes per run
+arm                        n     mean       sd      min   median      max
+A1 inc3 (power free)      20   3.3400   4.0601   0.4000   1.1000  11.8000
+A2 hold30 (power fixed)   20   1.2700   1.0766   0.4000   0.9000   4.8000
+A3 pin750 (pin+release)   20   2.1200   2.8723   0.4000   1.5000  13.4000
+A1 ceiling subset         14   0.9571   0.9897   0.4000   0.4000   4.0000
+
+[T2] COLLAPSES (mean transmit power < 25 dBm)
+  inc3 power free         6 / 20
+  hold30 power fixed      0 / 20
+  pin750 pin+release      1 / 20
+
+[T3] TESTS
+  hold30 vs inc3-ceiling, unpaired : +0.3129 pp, p = 0.42490
+  hold30 vs inc3-all, paired       : -2.0700 pp, p = 0.02271
+  pin750 vs inc3-all, paired       : -1.2200 pp, p = 0.30240
+  hold30 mean minus pin750 mean    : -0.8500 pp
+
+[T4] REWARD-WEIGHT SWEEP (same 20 seeds, same config)
+  folder     W_PWR    collapsed  ceiling  mean RLF%
+  wpwr_w0.02 0.02            3       17      1.910
+  wpwr_w0.05 0.05            2       18      2.140
+  basin_v2   0.15            6       14      3.340
+  wpwr_w0.45 0.45            7       13      3.760
+  hold30     n/a             0       20      1.270
+
+[T5] BRANCH SPLIT, inc3 (basin_v2), 20 runs
+  power  (dBm)    gap    5.854 =  86.8% of spread | TWO CLUSTERS, 6 low / 14 high
+                  sorted: 23.25 23.26 23.26 23.27 23.27 23.27 29.13 29.19 29.83 29.92 29.95 29.96 29.99 29.99 30.00 30.00 30.00 30.00 30.00 30.00
+  spectrum (RB)   gap   38.763 =  71.4% of spread | TWO CLUSTERS, 6 low / 14 high
+                  sorted: 11.74 11.77 11.81 12.11 12.15 12.62 51.38 54.66 64.18 65.11 65.46 65.57 65.82 65.86 65.95 65.96 66.00 66.00 66.00 66.00
+  handover (/ep)  gap    0.122 =  35.9% of spread | one group
+                  sorted: 0.27 0.28 0.29 0.29 0.29 0.29 0.29 0.29 0.29 0.29 0.29 0.30 0.30 0.30 0.30 0.31 0.34 0.47 0.50 0.61
+  low-power seeds   : [1, 2, 5, 7, 16, 19]
+  low-spectrum seeds: [0, 2, 4, 8, 16, 17]
+  narrow-band count by arm: inc3 6, hold30 10, pin750 8
+
+[T6] 2x2 -- all 60 runs, stratified by both branch modes
+  power    spectrum  runs   mean RLF%     worst
+  quiet    narrow       2        9.40     11.40
+  quiet    wide         5        9.60     13.40
+  loud     narrow      22        1.35      4.40
+  loud     wide        31        1.23      4.80
+  power   : quiet 7 runs 9.5429% vs loud 53 runs 1.2792%  -> ratio 7.46x
+  spectrum: narrow 24 runs 2.0167% vs wide 36 runs 2.3944% -> ratio 0.84x
+
+[T7] REWARD DECOMPOSITION per episode (inc3 floor vs ceiling)
+                return     link+      RLF-    power-     spec-       ho-
+  floor          89.38     95.95     -1.78     -0.47     -3.25     -0.02
+  ceiling        80.27     98.62     -0.19    -14.48     -3.39     -0.01
+  difference      9.11     -2.67     -1.59     14.01      0.14     -0.01
+
+[T8] MEAN RETURN vs CVaR25 -- the two rank the basins oppositely
+  floor   : return   89.379  cvar25   72.627  (n=6)
+  ceiling : return   80.271  cvar25   77.757  (n=14)
+  floor minus ceiling: return +9.108 | cvar25 -5.130
+  hold30  : return   80.641  cvar25   77.500
+
+[T9] PER-SEED, all three arms
+  seed | inc3 dBm inc3 RLF |  fix dBm  fix RLF |  pin dBm  pin RLF
+     0 |    29.99     0.80 |    30.00     0.80 |    30.00     0.40
+     1 |    23.26     6.00 |    30.00     1.40 |    29.85     0.40
+     2 |    23.27    11.40 |    30.00     0.80 |    26.87     4.40
+     3 |    30.00     1.00 |    30.00     1.00 |    28.33     3.40
+     4 |    29.13     1.20 |    30.00     1.00 |    29.71     0.40
+     5 |    23.25     6.20 |    30.00     0.40 |    29.59     2.00
+     6 |    30.00     0.40 |    30.00     0.40 |    29.99     0.40
+     7 |    23.26    10.60 |    30.00     4.80 |    29.24     1.40
+     8 |    30.00     0.40 |    30.00     0.80 |    30.00     0.40
+     9 |    29.83     0.40 |    30.00     0.40 |    29.65     2.20
+    10 |    29.95     0.40 |    30.00     0.40 |    29.99     1.80
+    11 |    29.92     0.40 |    30.00     1.40 |    30.00     1.20
+    12 |    30.00     0.40 |    30.00     0.80 |    23.26    13.40
+    13 |    29.19     1.80 |    30.00     2.00 |    30.00     0.80
+    14 |    30.00     0.40 |    30.00     0.40 |    29.57     1.80
+    15 |    29.96     0.40 |    30.00     3.20 |    29.37     2.80
+    16 |    23.27     7.40 |    30.00     1.60 |    29.68     2.00
+    17 |    30.00     4.00 |    30.00     1.60 |    29.99     1.20
+    18 |    29.99     1.40 |    30.00     0.80 |    30.00     0.40
+    19 |    23.27    11.80 |    30.00     1.40 |    30.00     1.60
+
+[T10] SECONDARY MEANS (for the no-degradation claim)
+  inc3 all       return   83.003 | cvar25   76.218 | ho/ep 0.3306 | RB  48.308
+  inc3 ceiling   return   80.271 | cvar25   77.757 | ho/ep 0.2913 | RB  48.446
+  hold30         return   80.641 | cvar25   77.500 | ho/ep 0.2877 | RB  38.047
+  pin750         return   81.134 | cvar25   76.383 | ho/ep 0.2896 | RB  44.686
+
+[T11] SUBGROUP CLAIMS USED IN THE TEXT
+  A2 minus A1 on the 14 previously-high-power seeds : +0.1143 pp (mean)
+  A1 mean RLF on the 6 collapsed seeds             : 8.9000 %
+  A2 mean RLF on those same seeds                   : 1.7333 %
+  A3 minus A1 on the previously-high-power seeds    : +1.2286 pp (mean)
+  A3: of those 14, worse on 7, better on 5, equal on 2
+  A3 rescued to high power, of the 6 collapsed     : 5
+  reward decomposition: link+RLF cost paid by low mode = 4.2600

@@ -1,0 +1,65 @@
+========================================================================
+FROZEN FINAL NUMBERS  (python freeze_final.py)
+240 runs, seeds 20-99, 3 arms | seed 20260921 | 200000 permutations
+========================================================================
+
+[A] THE THREE ARMS -- out-of-sample RLF %
+arm                         n     mean       sd   median    worst
+F nothing inert            80    3.270    3.788    1.400   14.400
+P power inert              80    1.280    0.978    1.200    5.000
+S spectrum inert           80    2.643    3.556    1.300   19.200
+
+[B] COLLAPSES (power < 25 dBm)
+  F   22 / 80
+  P    0 / 80
+  S   16 / 80
+
+[C] CO-PRIMARY TESTS
+  CP1  P minus S : -1.3625 pp, p = 0.00034
+  CP2  S minus F : -0.6275 pp, p = 0.29929, 90% CI [-1.5975, +0.3575]
+       equivalence bound +/-0.75 : NOT MET
+  REF  F minus P : +1.9900 pp, p = 0.00001
+
+[D] BRANCH SPREAD, arm F, n=80 (largest gap as %% of spread)
+  power      83.8%
+  spectrum   36.7%
+  handover   98.3%
+  narrow-band runs in F : 33 / 80 (41%)
+
+[E] COST ASYMMETRY within arm F (n=80)
+  power    low 22  8.255%  high 58  1.379%  -> 5.98x
+  spectrum narrow 25  1.616%  wide 33  1.200%  -> 1.35x (within high power)
+  absolute: power +6.88 pp | spectrum +0.42 pp
+
+[F] THRESHOLD SENSITIVITY (arm F)
+  power<24 spec<25 : power 5.98x | spectrum 1.35x
+  power<24 spec<30 : power 5.98x | spectrum 1.35x
+  power<24 spec<35 : power 5.98x | spectrum 1.33x
+  power<25 spec<25 : power 5.98x | spectrum 1.35x
+  power<25 spec<30 : power 5.98x | spectrum 1.35x
+  power<25 spec<35 : power 5.98x | spectrum 1.33x
+  power<26 spec<25 : power 5.98x | spectrum 1.35x
+  power<26 spec<30 : power 5.98x | spectrum 1.35x
+  power<26 spec<35 : power 5.98x | spectrum 1.33x
+
+[G] NO-DEGRADATION CHECK (arm P vs arm F)
+  return   F  82.951   P  79.770
+  cvar25   F  76.093   P  76.610
+  ho/ep    F  0.7219   P  0.2883
+  RB       F  42.744   P  47.768
+
+[H] DERIVED AND OUTLIER FIGURES CITED IN THE TEXT
+  Fisher 6/20 vs 2/20 (the underpowered first attempt) : p = 0.235
+  outlier run: seed 97 | handovers/ep 30.69 | RLF 10.80% | power 29.97 dBm
+  other 79 handover values: min 0.26  max 0.79
+  handover gap statistic excluding the outlier : 17.5%
+  handover median (arm F) 0.294  | arm P median 0.288
+  absolute pp differences: power +6.88 | spectrum +0.42
+  (the manuscript rounds these to 6.9 and 0.4)
+
+[I] BRANCH OCCUPANCY, arm F -- counts, no shape statistic
+  power   : 22 below 25 dBm |  0 between 25-28 | 58 at 28+
+  spectrum: 33 below 20 RB  |  1 between 20-50 | 46 at 50+
+  handover: 79 within 0.26-0.79 |  1 above 1.0
+  gap statistic on spectrum excluding the 4 intermediate runs:
+    71.8% (against 36.7% with them included)
