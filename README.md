@@ -2,8 +2,8 @@
 
 Code, pre-registrations and per-run results for the pinning experiments of:
 
-> **Bimodal Power Convergence in Deep Reinforcement Learning for Sub-THz Vehicular Radio
-> Resource Management: Diagnosis, Cost, and Remedies**
+> **Bimodal Power Convergence Turns Deep Reinforcement Learning for 140 GHz Vehicular
+> Networks into a Reliability Lottery**
 > G. Dayasagar and Deepa Nivethika S., School of Computer Science and Engineering,
 > Vellore Institute of Technology, Chennai.
 
