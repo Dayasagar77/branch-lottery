@@ -90,3 +90,67 @@ To avoid selecting analyses after seeing results, the following are fixed now.
    asserted.
 
 No further analyses will be added after results are seen without being labelled post-hoc.
+
+---
+
+# ADDENDUM, 22 September 2026 — a statement in section 3 above is FACTUALLY WRONG
+
+The original text is left unaltered above, as a frozen pre-registration should be. This addendum
+records an error in it, found on 22 September 2026 while designing follow-up experiments.
+
+## What section 3 claims
+
+> "`BRANCHES` is hardcoded `[2, 3, 3]` in the controller, so neither `hold30` nor `hold66`
+> removes a network head ... Both arms are treated identically in this respect, so the comparison
+> is sound."
+
+## What the code actually does
+
+`paper2_env.py` line 195:
+
+```python
+self.action_space = spaces.MultiDiscrete([2, PWR_N_ACT, 3])
+```
+
+The spectrum dimension is hardcoded to 3. The power dimension is `PWR_N_ACT`, which is **1**
+under `hold30`. `paper2_controller.py` line 704 then resizes the network in place:
+
+```python
+BRANCHES[1] = int(PE.PWR_N_ACT)
+```
+
+with a hard guard requiring the network's branch widths to equal the environment's action space.
+So the hardcoded `[2, 3, 3]` is overridden before the network is built.
+
+Verified by instantiating the environment under each mode:
+
+| configuration | action space | power head | spectrum head |
+|---|---|---|---|
+| F, `inc3` | `[2, 3, 3]` | 3 outputs | 3 outputs |
+| **P, `hold30`** | `[2, 1, 3]` | **1 output — the head is reduced** | 3 outputs |
+| **S, `hold66`** | `[2, 3, 3]` | 3 outputs | **3 outputs — head intact, effect removed** |
+
+**P removes a network head; S does not.** The two arms are therefore *not* the same operation
+applied to different branches, and the sentence "both arms are treated identically in this
+respect" is false.
+
+## Consequence for the result obtained under this pre-registration
+
+The P-versus-S contrast confounds two things: which control quantity is frozen, and whether the
+corresponding head, its parameters, its TD loss and its gradient into the shared encoder still
+exist. The observed P > S is consistent with branch identity mattering, and equally consistent
+with head removal helping where S never removed one.
+
+**Unaffected:** the F-versus-P comparison, and the cost stratification, which is computed within
+arm F alone.
+
+## What is being done about it
+
+A follow-up pre-registration (`PREREG_05`) adds a **forced-action** arm — the power head kept at
+its full three outputs and trained normally, with the environment applying PT_MAX regardless of
+the chosen action — and a **head-reduced spectrum** arm. Those two restore architectural symmetry
+and allow branch identity to be separated from head removal. The result reported under the
+present pre-registration is to be read as provisional on that outcome.
+
+This error was ours, was not raised by any reviewer in this form, and is recorded here rather
+than quietly corrected.

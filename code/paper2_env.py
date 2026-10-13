@@ -74,8 +74,11 @@ W_REL, RLF_PEN, W_PWR, W_SPEC, W_HO = 1.0, 20.0, 0.15, 0.05, 0.05
 # rb stays at its reset value RB_MAX for the whole episode. Exact mirror of the hold30 power
 # mode. Default 'inc3' reproduces the published behaviour byte for byte.
 _SPEC_ACT = os.environ.get('P2_SPEC_ACT', 'inc3')
-if _SPEC_ACT not in ('inc3', 'hold66'):
-    raise ValueError("P2_SPEC_ACT must be inc3 or hold66; got %r" % _SPEC_ACT)
+if _SPEC_ACT not in ('inc3', 'hold66', 'hold66r'):
+    raise ValueError("P2_SPEC_ACT must be inc3, hold66 or hold66r; got %r" % _SPEC_ACT)
+# hold66r - as hold66 but the spectrum HEAD is also reduced to a single action, making it the
+#           exact mirror of hold30. Added 22 Sep 2026 (PREREG_05).
+SPEC_N_ACT = 1 if _SPEC_ACT == 'hold66r' else 3
 
 _PWR_FORM = os.environ.get('P2_PWR_FORM', 'linear')
 if _PWR_FORM not in ('linear', 'quad', 'sqrt'):
@@ -100,17 +103,20 @@ if _W_PWR_ENV is not None:
 # interior is priced. Testing that needs the ADDRESSING changed while the reachable power set is
 # held fixed. Every mode below lands on the same 1 dB grid over [PT_MIN, PT_MAX].
 _PWR_ACT = os.environ.get('P2_PWR_ACT', 'inc3')
-if _PWR_ACT not in ('inc3', 'inc7', 'direct8', 'hybrid11', 'hold30'):
-    raise ValueError('P2_PWR_ACT must be inc3, inc7, direct8, hybrid11 or hold30; got %r' % _PWR_ACT)
+_PWR_ACT_OK = ('inc3', 'inc7', 'direct8', 'hybrid11', 'hold30',
+               'force30', 'range28', 'hold28', 'hold29')
+if _PWR_ACT not in _PWR_ACT_OK:
+    raise ValueError('P2_PWR_ACT must be one of %s; got %r' % (_PWR_ACT_OK, _PWR_ACT))
 
 _PWR_DELTAS = {'inc3': (-1.0, 0.0, 1.0),
                'inc7': (-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0)}
 # hybrid11 = the 8 absolute levels AND the 3 increments, over the same reachable set.
 # It literally CONTAINS inc3 as a sub-branch, so the agent can jump or refine.
 _N_ABS = int(PT_MAX - PT_MIN) + 1                      # 8 levels on the 1 dB grid
-PWR_N_ACT = (1 if _PWR_ACT == 'hold30' else
+PWR_N_ACT = (1 if _PWR_ACT in ('hold30', 'hold28', 'hold29') else
              8 if _PWR_ACT == 'direct8' else
              _N_ABS + 3 if _PWR_ACT == 'hybrid11' else
+             3 if _PWR_ACT in ('force30', 'range28') else
              len(_PWR_DELTAS[_PWR_ACT]))
 
 
@@ -130,6 +136,24 @@ def _apply_pwr(pt, a):
     """
     if _PWR_ACT == 'hold30':
         return float(PT_MAX)
+    # --- added 22 Sep 2026 for the R2 factorial (PREREG_05) --------------------------------
+    # force30 - the power HEAD is kept at its full three actions and trains normally, but the
+    #           actuator ignores the chosen action and applies PT_MAX. This is the architectural
+    #           mirror of hold66: the branch is inert, the head is not reduced. It exists because
+    #           hold30 reduces the head (PWR_N_ACT=1) while hold66 does not, so P and S were not
+    #           the same operation applied to different branches.
+    if _PWR_ACT == 'force30':
+        return float(PT_MAX)
+    # hold28/hold29 - as hold30 but at a non-maximum level, to ask whether the benefit is
+    #           'maximum power' or merely 'enough power'.
+    if _PWR_ACT == 'hold28':
+        return 28.0
+    if _PWR_ACT == 'hold29':
+        return 29.0
+    # range28 - the head keeps three actions and learns, but the reachable set is [28, PT_MAX]:
+    #           the unsafe region is forbidden rather than the branch frozen.
+    if _PWR_ACT == 'range28':
+        return float(np.clip(pt + _PWR_DELTAS['inc3'][a] * PT_STEP, 28.0, PT_MAX))
     if _PWR_ACT == 'direct8':
         return float(PT_MIN + a)
     if _PWR_ACT == 'hybrid11':
@@ -192,7 +216,7 @@ class MultiRSUBlockageEnv(gym.Env):
         self._cache = {}                              # scene_id -> precomputed geometry
         # obs: 5 physics + 5 anticipation + 1 handover-in-progress ; action: branched [HO(2),pwr(PWR_N_ACT),spec(3)]
         self.observation_space = spaces.Box(-2.0, 2.0, shape=(11,), dtype=np.float32)
-        self.action_space = spaces.MultiDiscrete([2, PWR_N_ACT, 3])
+        self.action_space = spaces.MultiDiscrete([2, PWR_N_ACT, SPEC_N_ACT])
 
     # ---------- per-scene geometry precompute (cached in-memory AND on disk) ----------
     CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'geom_cache')
@@ -317,7 +341,7 @@ class MultiRSUBlockageEnv(gym.Env):
             if cand != self.serv:
                 self._ho_target = cand; self._ho_timer = self.ho_lat; ho_started = True
         self.pt = _apply_pwr(self.pt, a_pwr)
-        if _SPEC_ACT == 'hold66':
+        if _SPEC_ACT in ('hold66', 'hold66r'):
             self.rb = int(RB_MAX)          # inert: allocation pinned at its reset value
         else:
             self.rb = int(np.clip(self.rb + (a_rb - 1) * RB_STEP, RB_MIN, RB_MAX))

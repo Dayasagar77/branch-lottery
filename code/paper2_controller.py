@@ -63,6 +63,12 @@ N_QUANT = 32
 # action space. Read at MODULE SCOPE and OFF unless P2_FDQR=1, so every path below is
 # bypassed by default and the published controller reproduces bit-for-bit.
 FDQR = os.environ.get('P2_FDQR', '0') == '1'
+# PREREG_07: EXACT joint selection. Enumerates all prod(BRANCHES) joint actions and scores
+# each with the LAST branch's cost head at a complete prefix, which the decomposition theory
+# states is exact on the joint action. This is the CEILING any factored rule could reach; it
+# is affordable only because the space is 18 here. OFF unless P2_FDQR_EXACT=1, and every path
+# below is untouched when off.
+FDQR_EXACT = os.environ.get('P2_FDQR_EXACT', '0') == '1'
 # Budget on CVaR_alpha of the discounted per-step outage cost. 2.0 sits between the two
 # measured basins: with gamma=0.99 a sustained outage rate p gives cost ~ 100p, so the
 # high-reliability basin (0.96%) scores ~0.96 and the low basin (8.90%) ~8.9.
@@ -270,6 +276,71 @@ class Agent:
         self._sf_over = 0       # ... where the price was paid and the flagged action kept
 
     @torch.no_grad()
+    def _act_exact(self, out, qs):
+        """PREREG_07 EXACT joint selection — the ceiling.
+
+        Enumerate every joint action. Score each by the LAST branch's cost head conditioned on a
+        COMPLETE prefix of the others, which the decomposition theory states is exact on the joint
+        action. Keep those within budget; take the return-argmax over that feasible set, a joint
+        action scored by the sum of its per-branch return CVaRs. Fall back to the cost-argmin joint
+        action when nothing is feasible.
+
+        Reservoir feed. The threshold must stay comparable to the sequential arm, whose reservoir
+        receives one full cost vector per branch at the prefix it committed to. This does the same:
+        after the joint action is chosen, the three cost vectors ALONG THE CHOSEN PATH are computed
+        and fed. Nothing from the enumeration enters the reservoir, so the threshold population has
+        the same structure as the sequential arm's.
+        """
+        import itertools
+        dev = self.device
+        rets = [cvar_scores(qs[i], self.alpha)[0, 0] for i in range(len(BRANCHES))]
+
+        def prefix_of(j, upto):
+            parts = []
+            for k in range(upto):
+                oh = torch.zeros(1, 1, BRANCHES[k], device=dev); oh[0, 0, j[k]] = 1.0
+                parts.append(oh)
+            return torch.cat(parts, dim=-1) if parts else None
+
+        last = len(BRANCHES) - 1
+        joints = list(itertools.product(*[range(nb) for nb in BRANCHES]))
+        costs, scores = [], []
+        for j in joints:
+            cq = self.net.cost_quantiles(out, last, prefix_of(j, last))
+            costs.append(float(cvar_cost_scores(cq, self.alpha)[0, 0][j[last]]))
+            scores.append(float(sum(rets[i][j[i]] for i in range(len(BRANCHES)))))
+        costs_t = torch.tensor(costs)
+        thr = FDQR_D if FDQR_Q is None else self._fd_thr
+        feas = costs_t <= thr
+        if bool(feas.any()):
+            pick = int(torch.tensor(scores).masked_fill(~feas, float('-inf')).argmax())
+        else:
+            pick = int(costs_t.argmin())
+            self._fd_empty += 1
+        a = list(joints[pick])
+
+        # instrumentation and reservoir, mirroring the sequential arm branch for branch
+        unconstrained = [int(r.argmax()) for r in rets]
+        for i, nb in enumerate(BRANCHES):
+            c = cvar_cost_scores(self.net.cost_quantiles(out, i, prefix_of(a, i)), self.alpha)[0, 0]
+            self._fd_dec += 1
+            self._fd_excl += int((c > thr).sum())
+            cf = c.float()
+            self._fd_c_n += int(cf.numel()); self._fd_c_sum += float(cf.sum())
+            self._fd_c_min = min(self._fd_c_min, float(cf.min()))
+            self._fd_c_max = max(self._fd_c_max, float(cf.max()))
+            if a[i] != unconstrained[i]:
+                self._fd_bind += 1
+            if FDQR_Q is not None:
+                self._fd_res.extend(c.tolist())
+                if len(self._fd_res) > self._fd_res_cap:
+                    del self._fd_res[:len(self._fd_res) - self._fd_res_cap]
+                self._fd_since += 1
+                if len(self._fd_res) >= self._fd_warm and self._fd_since >= self._fd_every:
+                    self._fd_thr = float(np.quantile(np.asarray(self._fd_res), FDQR_Q))
+                    self._fd_since = 0
+        return a
+
     def act(self, obs, hidden, eps):
         x = torch.tensor(obs, dtype=torch.float32, device=self.device).view(1, 1, -1)
         if not FDQR:
@@ -288,6 +359,8 @@ class Agent:
         if eps > 0.0 and np.random.random() < eps:
             return [np.random.randint(nb) for nb in BRANCHES], hidden
         qs = self.net.heads_from_trunk(out)
+        if FDQR_EXACT:
+            return self._act_exact(out, qs), hidden
         a, prefix = [], None
         for i, nb in enumerate(BRANCHES):
             cq = self.net.cost_quantiles(out, i, prefix)             # (1,1,nb,nq)
@@ -702,6 +775,7 @@ def main():
         sys.exit(f'ABORT: asked for pwr_act={a.pwr_act!r} but paper2_env._PWR_ACT is '
                  f'{PE._PWR_ACT!r}. The override did not take -- refusing to train.')
     BRANCHES[1] = int(PE.PWR_N_ACT)          # in-place: paper2ma_train binds the same list
+    BRANCHES[2] = int(getattr(PE, 'SPEC_N_ACT', 3))   # PREREG_05: hold66r reduces the head too
     if a.pwr_form is not None and PE._PWR_FORM != a.pwr_form:
         sys.exit(f'ABORT: asked for pwr_form={a.pwr_form!r} but paper2_env._PWR_FORM is '
                  f'{PE._PWR_FORM!r}. The override did not take -- refusing to train.')

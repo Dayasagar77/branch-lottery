@@ -1,0 +1,41 @@
+========================================================================================================
+PREREG_05 ADJUDICATION — 2x2 factorial, seeds 20-99, n = 80 per arm, 400 runs
+========================================================================================================
+
+ARM MEANS (held-out RLF rate, %):
+   F   free_ext   mean  3.270   median  1.400   max 14.400
+   P   hold30     mean  1.280   median  1.200   max  5.000
+   S   hold66     mean  2.643   median  1.300   max 19.200
+   FA  force30    mean  1.660   median  1.400   max 11.200
+   SR  hold66r    mean  3.237   median  1.200   max 14.800
+
+THE 2x2 (mean held-out RLF %):
+                              head kept (3)  head reduced (1)
+   power pinned at 30 dBm     1.660          1.280         
+   spectrum pinned at 66 RB   2.643          3.237         
+   reference F, nothing pinned 3.270         
+
+CO-PRIMARIES (two-sided sign-flip, 200,000 draws, seed 20260922):
+branch  (FA-S)+(P-SR)        mean -2.9400  median -1.2000  95% CI [-4.2925, -1.6675]  signs -/0/+ 52/1/27  p = 0.000010
+arch    (P-FA)+(SR-S)        mean +0.2150  median -0.2000  95% CI [-0.9675, +1.3976]  signs -/0/+ 43/3/34  p = 0.726416
+
+SECONDARY (reported, NOT tested — underpowered by declaration):
+interaction (FA-S)-(P-SR)    mean +0.9750  median +0.4000  95% CI [-0.2400, +2.1800]  signs -/0/+ 31/1/48
+
+COMPONENT CONTRASTS (context only, not the co-primaries):
+FA - S                       mean -0.9825  median -0.1000  95% CI [-1.9375, -0.1200]  signs -/0/+ 40/8/32
+P - SR                       mean -1.9575  median -0.3000  95% CI [-2.8600, -1.1250]  signs -/0/+ 44/9/27
+P - FA                       mean -0.3800  median +0.0000  95% CI [-0.7975, +0.0000]  signs -/0/+ 39/12/29
+SR - S                       mean +0.5950  median +0.0000  95% CI [-0.5350, +1.7300]  signs -/0/+ 34/9/37
+F - P                        mean +1.9900  median +0.2000  95% CI [+1.1875, +2.8575]  signs -/0/+ 26/11/43
+
+========================================================================================================
+at alpha = 0.05   branch p = 0.000010 (sig) | architecture p = 0.726416 (ns)
+   -> H-IDENTITY SUPPORTED — the branch-identity claim survives the confound.
+at alpha = 0.025  branch p = 0.000010 (sig) | architecture p = 0.726416 (ns)
+   -> H-IDENTITY SUPPORTED — the branch-identity claim survives the confound.
+========================================================================================================
+
+Direction note: H-IDENTITY predicted the branch effect to be significantly NEGATIVE;
+H-HEAD predicted the architecture effect to be significantly NEGATIVE. A significant
+POSITIVE effect is not support for either hypothesis and must be reported as such.
